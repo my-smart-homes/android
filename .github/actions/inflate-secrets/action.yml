@@ -9,10 +9,10 @@ inputs:
     required: true
   firebase-creds:
     description: "The firebase credentials to inflate"
-    required: true
+    required: false
   playstore-creds:
     description: "The playstore credentials to inflate"
-    required: true
+    required: false
 runs:
   using: "composite"
   steps:
@@ -41,6 +41,7 @@ runs:
         echo $GOOGLE_SERVICES > automotive/google-services.json
 
     - name: Inflate firebaseAppDistributionServiceCredentialsFile.json
+      if: ${{ inputs.firebase-creds != '' }}
       shell: bash
       env:
         CREDS: ${{ inputs.firebase-creds }}
@@ -48,6 +49,7 @@ runs:
         echo $CREDS > firebaseAppDistributionServiceCredentialsFile.json
 
     - name: Inflate playStorePublishServiceCredentialsFile.json
+      if: ${{ inputs.playstore-creds != '' }}
       shell: bash
       env:
         CREDS: ${{ inputs.playstore-creds }}
