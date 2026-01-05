@@ -1,0 +1,111 @@
+name: Sync Upstream
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: Sync with Upstream
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.ANDROID_PAT }}
+
+      - name: Configure Git Credentials
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync and Rebase
+        id: sync
+        run: |
+          # Add upstream
+          git remote add upstream https://github.com/home-assistant/android.git
+          git fetch upstream main
+
+          # Check for custom commits (reachable from HEAD but not upstream/main)
+          COMMITS=$(git log HEAD --not upstream/main --reverse --format="%H")
+          
+          if [ -z "$COMMITS" ]; then
+            echo "No custom commits found."
+            # Check fast-forward
+            LOCAL=$(git rev-parse HEAD)
+            REMOTE=$(git rev-parse upstream/main)
+            if [ "$LOCAL" = "$REMOTE" ]; then
+               echo "Already up-to-date."
+               echo "updated=false" >> $GITHUB_OUTPUT
+               exit 0
+            else
+               echo "Fast-forwarding..."
+               git reset --hard upstream/main
+               git push origin main
+               echo "updated=true" >> $GITHUB_OUTPUT
+               exit 0
+            fi
+          fi
+
+          echo "Found custom commits to rebase: $COMMITS"
+
+          # Create timestamp for backup/branches
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          BACKUP_TAG="backup/pre-sync-${TIMESTAMP}"
+
+          # Create Backup Tag
+          git tag $BACKUP_TAG
+          git push origin $BACKUP_TAG
+          echo "Backup tag created: $BACKUP_TAG"
+
+          # Reset to upstream
+          git reset --hard upstream/main
+
+          # Apply custom commits
+          CONFLICT=false
+          for COMMIT in $COMMITS; do
+            echo "Cherry-picking $COMMIT..."
+            if ! git cherry-pick $COMMIT; then
+               echo "Conflict or Error on commit $COMMIT"
+               CONFLICT=true
+               
+               # Commit the conflict markers so the user can see them in the branch
+               git add -A
+               git commit -m "CONFLICTING COMMIT: $COMMIT - Resolve manually"
+               break
+            fi
+          done
+
+          if [ "$CONFLICT" = "true" ]; then
+             CONFLICT_BRANCH="conflict-sync-${TIMESTAMP}"
+             # Create branch from the current HEAD (which is upstream + successful picks)
+             git checkout -b $CONFLICT_BRANCH
+             
+             # Attempt to push conflict branch, but handle permission errors (common with workflow file changes)
+             if git push origin $CONFLICT_BRANCH; then
+                 echo "::error::Rebase encountered a conflict. Created branch '$CONFLICT_BRANCH' with successful patches applied. Please checkout this branch and manually cherry-pick the remaining commits."
+             else
+                 echo "::error::Rebase encountered a conflict. Could not push conflict branch '$CONFLICT_BRANCH' due to token permissions (likely workflow files modified). State preserved in backup tag '$BACKUP_TAG'."
+                 echo "Detailed instructions:"
+                 echo "1. git fetch origin"
+                 echo "2. git checkout $BACKUP_TAG"
+                 echo "3. git rebase upstream/main"
+             fi
+             exit 1
+          fi
+
+          # Force push updated main
+          git push origin main --force
+          echo "updated=true" >> $GITHUB_OUTPUT
+
+      - name: Trigger Build Workflow
+        if: steps.sync.outputs.updated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.ANDROID_PAT }}
+        run: |
+          echo "Triggering onPush.yml workflow..."
+          gh workflow run onPush.yml --ref main
