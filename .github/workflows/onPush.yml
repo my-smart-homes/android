@@ -16,7 +16,7 @@ env:
 
 jobs:
   app_build:
-    name: Github, Firebase, and Sentry Release
+    name: Github Release
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -27,12 +27,13 @@ jobs:
 
       - uses: ./.github/actions/setup-build-env
         with:
-          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          cache-disabled: true
 
-      - uses: ruby/setup-ruby@708024e6c902387ab41de36e1669e43b5ee7085e # v1.283.0
-        with:
-          ruby-version: "4.0.1"
-          bundler-cache: true
+      # Ruby setup commented out - only needed for Fastlane (Play Store/Amazon)
+      # - uses: ruby/setup-ruby@ae195bbe749a7cef685ac729197124a48305c1cb # v1.276.0
+      #   with:
+      #     ruby-version: "4.0.0"
+      #     bundler-cache: true
 
       - uses: ./.github/actions/create-release-number
         name: Create Release Number
@@ -41,10 +42,8 @@ jobs:
       - uses: ./.github/actions/inflate-secrets
         name: Inflate Secrets
         with:
-          keystore: ${{ secrets.ORIGINAL_KEYSTORE_FILE }}
-          google-services: ${{ secrets.GOOGLESERVICES }}
-          firebase-creds: ${{ secrets.FIREBASECREDS }}
-          playstore-creds: ${{ secrets.PLAYSTORECREDS }}
+          keystore: ${{ secrets.RELEASE_KEYSTORE }}
+          google-services: ${{ secrets.ANDROID_GOOGLE_SERVICE }}
 
       - uses: ./.github/actions/create-release-notes
         name: Create Release Notes
@@ -52,19 +51,19 @@ jobs:
           tag-name: ${{ steps.rel_number.outputs.version }}
           gh-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: ./.github/actions/download-translations
-        name: Download Translations
-        with:
-          lokalise-project: ${{ secrets.LOKALISE_PROJECT }}
-          lokalise-token: ${{ secrets.LOKALISE_TOKEN }}
+      # Lokalise translations commented out - no Lokalise configured
+      # - uses: ./.github/actions/download-translations
+      #   name: Download Translations
+      #   with:
+      #     lokalise-project: ${{ secrets.LOKALISE_PROJECT }}
+      #     lokalise-token: ${{ secrets.LOKALISE_TOKEN }}
 
       - name: Build Release
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.ORIGINAL_KEYSTORE_FILE_PASSWORD }}
-          KEYSTORE_ALIAS: ${{ secrets.ORIGINAL_KEYSTORE_ALIAS }}
-          KEYSTORE_ALIAS_PASSWORD: ${{ secrets.ORIGINAL_KEYSTORE_ALIAS_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_ALIAS_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           VERSION_CODE: ${{ steps.rel_number.outputs.version-code }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: |
           ./gradlew :common:assemble :app:assembleRelease :wear:assembleRelease :automotive:assembleRelease
 
@@ -75,21 +74,19 @@ jobs:
           path: ./**/*.apk
 
       - name: Create Version File
-        if: github.event.inputs.beta == 'true'
         shell: bash
         env:
           VERSION_CODE: ${{ steps.rel_number.outputs.version-code }}
         run: |
           echo $VERSION_CODE > ./app/build/outputs/version_code.txt
 
-      - name: Create Github Pre-Release
-        if: github.event.inputs.beta == 'true'
+      - name: Create Github Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           tag_name: ${{ steps.rel_number.outputs.version }}
           body_path: ./app/build/outputs/changelogGithub
           draft: false
-          prerelease: true
+          prerelease: false
           files: |
             ./app/build/outputs/apk/full/release/app-full-release.apk
             ./app/build/outputs/apk/minimal/release/app-minimal-release.apk
@@ -97,96 +94,96 @@ jobs:
             ./wear/build/outputs/apk/release/wear-release.apk
             ./automotive/build/outputs/apk/full/release/automotive-full-release.apk
             ./automotive/build/outputs/apk/minimal/release/automotive-minimal-release.apk
-            ./strings.zip
-            ./app/src/main/res/xml/locales_config.xml
 
-      - name: Deploy to Firebase
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.ORIGINAL_KEYSTORE_FILE_PASSWORD }}
-          KEYSTORE_ALIAS: ${{ secrets.ORIGINAL_KEYSTORE_ALIAS }}
-          KEYSTORE_ALIAS_PASSWORD: ${{ secrets.ORIGINAL_KEYSTORE_ALIAS_PASSWORD }}
-          VERSION_CODE: ${{ steps.rel_number.outputs.version-code }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-        run: ./gradlew appDistributionUploadFullRelease
+      # Firebase distribution commented out - no Firebase credentials
+      # - name: Deploy to Firebase
+      #   env:
+      #     KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      #     KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_PASSWORD }}
+      #     KEYSTORE_ALIAS_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      #     VERSION_CODE: ${{ steps.rel_number.outputs.version-code }}
+      #   run: ./gradlew appDistributionUploadFullRelease
 
-      - name: Prepare Amazon Listing
-        if: github.event.inputs.beta == 'true'
-        run: bundle exec fastlane prep_amazon
-        env:
-          AMAZON_APPSTORE_CLIENT_ID: ${{ secrets.AMAZON_APPSTORE_CLIENT_ID }}
-          AMAZON_APPSTORE_CLIENT_SECRET: ${{ secrets.AMAZON_APPSTORE_CLIENT_SECRET }}
-          AMAZON_APPSTORE_APP_ID: ${{ secrets.AMAZON_APPSTORE_APP_ID }}
+      # Amazon Appstore commented out - no Amazon credentials
+      # - name: Prepare Amazon Listing
+      #   if: github.event.inputs.beta == 'true'
+      #   run: bundle exec fastlane prep_amazon
+      #   env:
+      #     AMAZON_APPSTORE_CLIENT_ID: ${{ secrets.AMAZON_APPSTORE_CLIENT_ID }}
+      #     AMAZON_APPSTORE_CLIENT_SECRET: ${{ secrets.AMAZON_APPSTORE_CLIENT_SECRET }}
+      #     AMAZON_APPSTORE_APP_ID: ${{ secrets.AMAZON_APPSTORE_APP_ID }}
 
-      - name: Upload Github Dependencies
-        uses: gradle/actions/dependency-submission@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v5.0.0
+      # - name: Upload Github Dependencies
+      #   uses: gradle/actions/dependency-submission@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v5.0.0
 
       - name: Print `git status`
         run: git status
 
-  play_publish:
-    name: Play Publish
-    runs-on: ubuntu-latest
-    concurrency:
-      group: playstore_deploy
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          fetch-depth: 0
-
-      - uses: ./.github/actions/setup-build-env
-        with:
-          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
-
-      - uses: ruby/setup-ruby@708024e6c902387ab41de36e1669e43b5ee7085e # v1.283.0
-        with:
-          ruby-version: "4.0.1"
-          bundler-cache: true
-
-      - uses: ./.github/actions/create-release-number
-        name: Create Release Number
-        id: rel_number
-
-      - uses: ./.github/actions/inflate-secrets
-        name: Inflate Secrets
-        with:
-          keystore: ${{ secrets.UPLOAD_KEYSTORE_FILE }}
-          google-services: ${{ secrets.GOOGLESERVICES }}
-          firebase-creds: ${{ secrets.FIREBASECREDS }}
-          playstore-creds: ${{ secrets.PLAYSTORECREDS }}
-
-      - uses: ./.github/actions/create-release-notes
-        name: Create Release Notes
-        with:
-          tag-name: ${{ steps.rel_number.outputs.version }}
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: ./.github/actions/download-translations
-        name: Download Translations
-        with:
-          lokalise-project: ${{ secrets.LOKALISE_PROJECT }}
-          lokalise-token: ${{ secrets.LOKALISE_TOKEN }}
-
-      - name: Build Release
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_FILE_PASSWORD }}
-          KEYSTORE_ALIAS: ${{ secrets.UPLOAD_KEYSTORE_ALIAS }}
-          KEYSTORE_ALIAS_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_ALIAS_PASSWORD }}
-          VERSION_CODE: ${{ steps.rel_number.outputs.version-code }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-        run: |
-          ./gradlew :common:assemble :app:bundleFullRelease :wear:bundleRelease :automotive:bundleFullRelease
-
-      - name: Archive Build
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: release-aabs
-          path: ./**/*.aab
-
-      - name: Deploy to Playstore Internal
-        run: bundle exec fastlane deploy_internal
-
-      - name: Promote Internal to Beta
-        if: github.event.inputs.beta == 'true'
-        run: bundle exec fastlane promote_to_beta
+  # Play Store publishing job commented out - using GitHub releases only
+  # play_publish:
+  #   name: Play Publish
+  #   runs-on: ubuntu-latest
+  #   concurrency:
+  #     group: playstore_deploy
+  #   permissions:
+  #     contents: write
+  #   steps:
+  #     - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+  #       with:
+  #         fetch-depth: 0
+  #
+  #     - uses: ./.github/actions/setup-build-env
+  #       with:
+  #         cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+  #
+  #     - uses: ruby/setup-ruby@ae195bbe749a7cef685ac729197124a48305c1cb # v1.276.0
+  #       with:
+  #         ruby-version: "4.0.0"
+  #         bundler-cache: true
+  #
+  #     - uses: ./.github/actions/create-release-number
+  #       name: Create Release Number
+  #       id: rel_number
+  #
+  #     - uses: ./.github/actions/inflate-secrets
+  #       name: Inflate Secrets
+  #       with:
+  #         keystore: ${{ secrets.UPLOAD_KEYSTORE_FILE }}
+  #         google-services: ${{ secrets.GOOGLESERVICES }}
+  #         firebase-creds: ${{ secrets.FIREBASECREDS }}
+  #         playstore-creds: ${{ secrets.PLAYSTORECREDS }}
+  #
+  #     - uses: ./.github/actions/create-release-notes
+  #       name: Create Release Notes
+  #       with:
+  #         tag-name: ${{ steps.rel_number.outputs.version }}
+  #         gh-token: ${{ secrets.GITHUB_TOKEN }}
+  #
+  #     - uses: ./.github/actions/download-translations
+  #       name: Download Translations
+  #       with:
+  #         lokalise-project: ${{ secrets.LOKALISE_PROJECT }}
+  #         lokalise-token: ${{ secrets.LOKALISE_TOKEN }}
+  #
+  #     - name: Build Release
+  #       env:
+  #         KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_FILE_PASSWORD }}
+  #         KEYSTORE_ALIAS: ${{ secrets.UPLOAD_KEYSTORE_ALIAS }}
+  #         KEYSTORE_ALIAS_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_ALIAS_PASSWORD }}
+  #         VERSION_CODE: ${{ steps.rel_number.outputs.version-code }}
+  #         SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+  #       run: |
+  #         ./gradlew :common:assemble :app:bundleFullRelease :wear:bundleRelease :automotive:bundleFullRelease
+  #
+  #     - name: Archive Build
+  #       uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+  #       with:
+  #         name: release-aabs
+  #         path: ./**/*.aab
+  #
+  #     - name: Deploy to Playstore Internal
+  #       run: bundle exec fastlane deploy_internal
+  #
+  #     - name: Promote Internal to Beta
+  #       if: github.event.inputs.beta == 'true'
+  #       run: bundle exec fastlane promote_to_beta
