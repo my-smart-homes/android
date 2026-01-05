@@ -1,35 +1,38 @@
-name: Production Deploy
+# Production Deploy workflow commented out - using GitHub releases only
+# This workflow promoted Play Store beta to production which is no longer needed
 
-on: # yamllint disable-line rule:truthy
-  workflow_dispatch:
-  release:
-    types: [released]
-
-env:
-  SUPPLY_UPLOAD_MAX_RETRIES: 5
-
-permissions:
-  contents: read
-
-jobs:
-  play_promote_production:
-    name: Play Publish Production
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
-      - uses: ruby/setup-ruby@708024e6c902387ab41de36e1669e43b5ee7085e # v1.283.0
-        with:
-          ruby-version: "4.0.1"
-          bundler-cache: true
-
-      - uses: ./.github/actions/inflate-secrets
-        name: Inflate Secrets
-        with:
-          keystore: ${{ secrets.ORIGINAL_KEYSTORE_FILE }}
-          google-services: ${{ secrets.GOOGLESERVICES }}
-          firebase-creds: ${{ secrets.FIREBASECREDS }}
-          playstore-creds: ${{ secrets.PLAYSTORECREDS }}
-
-      - name: Promote Beta to Production Play Store
-        run: bundle exec fastlane promote_to_production
+# name: Production Deploy
+#
+# on: # yamllint disable-line rule:truthy
+#   workflow_dispatch:
+#   release:
+#     types: [released]
+#
+# env:
+#   SUPPLY_UPLOAD_MAX_RETRIES: 5
+#
+# permissions:
+#   contents: read
+#
+# jobs:
+#   play_promote_production:
+#     name: Play Publish Production
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+#
+#       - uses: ruby/setup-ruby@ae195bbe749a7cef685ac729197124a48305c1cb # v1.276.0
+#         with:
+#           ruby-version: "4.0.0"
+#           bundler-cache: true
+#
+#       - uses: ./.github/actions/inflate-secrets
+#         name: Inflate Secrets
+#         with:
+#           keystore: ${{ secrets.ORIGINAL_KEYSTORE_FILE }}
+#           google-services: ${{ secrets.GOOGLESERVICES }}
+#           firebase-creds: ${{ secrets.FIREBASECREDS }}
+#           playstore-creds: ${{ secrets.PLAYSTORECREDS }}
+#
+#       - name: Promote Beta to Production Play Store
+#         run: bundle exec fastlane promote_to_production
