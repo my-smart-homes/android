@@ -16,11 +16,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Mock debug google-services.json
-      shell: bash
-      run: |
-        cp .github/mock-google-services.json app/src/debug/google-services.json
-        cp .github/mock-google-services.json app/src/minimal/google-services.json
+    # Mock google-services step removed - using real google-services.json for all flavors
 
     - name: Inflate release_keystore.keystore
       shell: bash
@@ -39,6 +35,9 @@ runs:
         echo $GOOGLE_SERVICES > app/google-services.json
         echo $GOOGLE_SERVICES > wear/google-services.json
         echo $GOOGLE_SERVICES > automotive/google-services.json
+        # Also copy to flavor-specific directories for minimal builds
+        echo $GOOGLE_SERVICES > app/src/minimal/google-services.json
+        echo $GOOGLE_SERVICES > app/src/debug/google-services.json
 
     - name: Inflate firebaseAppDistributionServiceCredentialsFile.json
       if: ${{ inputs.firebase-creds != '' }}
