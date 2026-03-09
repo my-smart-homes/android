@@ -126,6 +126,8 @@ import io.homeassistant.companion.android.improv.ui.ImprovPermissionDialog
 import io.homeassistant.companion.android.improv.ui.ImprovSetupDialog
 import io.homeassistant.companion.android.launch.LaunchActivity
 import io.homeassistant.companion.android.nfc.WriteNfcTag
+import io.homeassistant.companion.android.onboarding.login.MshAutoWifiManager
+import io.homeassistant.companion.android.onboarding.login.MshSessionHolder
 import io.homeassistant.companion.android.sensors.SensorReceiver
 import io.homeassistant.companion.android.sensors.SensorWorker
 import io.homeassistant.companion.android.settings.ConnectionSecurityLevelFragment
@@ -257,6 +259,12 @@ class WebViewActivity :
 
     @Inject
     lateinit var dataSourceFactory: DataSource.Factory
+
+    @Inject
+    internal lateinit var mshAutoWifiManager: MshAutoWifiManager
+
+    @Inject
+    internal lateinit var mshSessionHolder: MshSessionHolder
 
     private lateinit var webView: WebView
     private var loadedUrl: Uri? = null
@@ -824,6 +832,12 @@ class WebViewActivity :
                         else -> {} // Do nothing
                     }
                 }
+            }
+        }
+
+        if (mshSessionHolder.session?.internalUrl != null) {
+            lifecycleScope.launch {
+                mshAutoWifiManager.autoAddCurrentWifiToAllServers()
             }
         }
     }
