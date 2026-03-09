@@ -1,5 +1,6 @@
 package io.homeassistant.companion.android.onboarding.connection
 
+import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.annotation.VisibleForTesting
 import androidx.compose.foundation.Image
@@ -15,8 +16,12 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -43,7 +48,15 @@ internal fun ConnectionScreen(onBackClick: () -> Unit, viewModel: ConnectionView
     val url by viewModel.urlFlow.collectAsState()
     val isLoading by viewModel.isLoadingFlow.collectAsState()
     val error by viewModel.errorFlow.collectAsState()
+    val autoLoginJs by viewModel.autoLoginJsFlow.collectAsState()
     val isError = error != null
+    var webViewRef by remember { mutableStateOf<WebView?>(null) }
+
+    LaunchedEffect(autoLoginJs) {
+        autoLoginJs?.let { js ->
+            webViewRef?.evaluateJavascript(js, null)
+        }
+    }
 
     ConnectionScreen(
         url = url,
@@ -51,6 +64,7 @@ internal fun ConnectionScreen(onBackClick: () -> Unit, viewModel: ConnectionView
         isError = isError,
         webViewClient = viewModel.webViewClient,
         onBackClick = onBackClick,
+        onWebViewCreated = { webViewRef = it },
         modifier = modifier,
     )
 }
@@ -63,6 +77,7 @@ internal fun ConnectionScreen(
     webViewClient: WebViewClient,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onWebViewCreated: (WebView) -> Unit = {},
 ) {
     Box(modifier = modifier.testTag(CONNECTION_SCREEN_TAG)) {
         Spacer(
@@ -81,6 +96,7 @@ internal fun ConnectionScreen(
                         .windowInsetsPadding(WindowInsets.safeDrawing),
                     configure = {
                         this.webViewClient = webViewClient
+                        onWebViewCreated(this)
                         loadUrl(url)
                     },
                     onBackPressed = onBackClick,
