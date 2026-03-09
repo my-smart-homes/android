@@ -190,7 +190,9 @@ core-remoteviews = { module = "androidx.core:core-remoteviews", version.ref = "c
 cronet-api = { module = "org.chromium.net:cronet-api", version.ref = "cronet" }
 cronet-embedded = { module = "org.chromium.net:cronet-embedded", version.ref = "cronet" }
 emojiJava = { module = "com.vdurmont:emoji-java", version.ref = "emojiJava" }
+firebase-auth = { module = "com.google.firebase:firebase-auth" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
+firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
 fragment-ktx = { module = "androidx.fragment:fragment-ktx", version.ref = "fragment-ktx" }
 constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "constraintlayout" }
