@@ -60,6 +60,8 @@ class AndroidApplicationDependenciesConventionPlugin : Plugin<Project> {
                     "fullImplementation"(libs.play.services.home)
                     "fullImplementation"(libs.play.services.threadnetwork)
                     "fullImplementation"(platform(libs.firebase.bom))
+                    "fullImplementation"(libs.firebase.auth)
+                    "fullImplementation"(libs.firebase.firestore)
                     "fullImplementation"(libs.firebase.messaging)
                     "fullImplementation"(libs.sentry.android.core)
                     "fullImplementation"(libs.play.services.wearable)

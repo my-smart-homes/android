@@ -342,6 +342,7 @@ fabric.properties
 google-services.json
 *.keystore
 version.txt
+**/MshSecrets.kt
 
 ## Kotlin daemon
 .kotlin

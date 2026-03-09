@@ -12,6 +12,9 @@ import io.homeassistant.companion.android.launch.HAStartDestinationRoute
 import io.homeassistant.companion.android.onboarding.connection.navigation.ConnectionRoute
 import io.homeassistant.companion.android.onboarding.connection.navigation.connectionScreen
 import io.homeassistant.companion.android.onboarding.connection.navigation.navigateToConnection
+import io.homeassistant.companion.android.onboarding.login.navigation.LoginRoute
+import io.homeassistant.companion.android.onboarding.login.navigation.loginScreen
+import io.homeassistant.companion.android.onboarding.login.navigation.navigateToLogin
 import io.homeassistant.companion.android.onboarding.localfirst.navigation.LocalFirstRoute
 import io.homeassistant.companion.android.onboarding.localfirst.navigation.localFirstScreen
 import io.homeassistant.companion.android.onboarding.localfirst.navigation.navigateToLocalFirst
@@ -118,21 +121,22 @@ internal fun NavGraphBuilder.onboarding(
 
     val startDestination = when {
         !skipWelcome -> WelcomeRoute
-        urlToOnboard.isNullOrEmpty() -> ServerDiscoveryRoute(serverDiscoveryMode)
+        urlToOnboard.isNullOrEmpty() -> LoginRoute
         else -> ConnectionRoute(urlToOnboard)
     }
 
     navigation<OnboardingRoute>(startDestination = startDestination) {
         welcomeScreen(
             onConnectClick = {
-                if (urlToOnboard.isNullOrEmpty()) {
-                    navController.navigateToServerDiscovery(serverDiscoveryMode)
-                } else {
-                    navController.navigateToConnection(urlToOnboard)
-                }
+                navController.navigateToLogin()
             },
             onLearnMoreClick = {
                 navController.navigateToUri(URL_GETTING_STARTED_DOCUMENTATION, onShowSnackbar)
+            },
+        )
+        loginScreen(
+            onLoginSuccess = { url ->
+                navController.navigateToConnection(url)
             },
         )
         commonScreens(navController = navController, onShowSnackbar = onShowSnackbar)
