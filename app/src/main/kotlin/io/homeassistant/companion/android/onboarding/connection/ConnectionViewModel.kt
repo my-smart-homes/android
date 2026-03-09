@@ -15,6 +15,7 @@ import io.homeassistant.companion.android.common.data.connectivity.ConnectivityC
 import io.homeassistant.companion.android.frontend.error.FrontendConnectionError
 import io.homeassistant.companion.android.frontend.error.FrontendConnectionErrorStateProvider
 import io.homeassistant.companion.android.onboarding.connection.navigation.ConnectionRoute
+import io.homeassistant.companion.android.onboarding.login.MshSessionHolder
 import io.homeassistant.companion.android.util.HAWebViewClient
 import io.homeassistant.companion.android.util.HAWebViewClientFactory
 import javax.inject.Inject
@@ -27,6 +28,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import org.json.JSONObject
 import timber.log.Timber
 
 /**
@@ -65,6 +67,7 @@ internal class ConnectionViewModel @VisibleForTesting constructor(
     private val rawUrl: String,
     private val webViewClientFactory: HAWebViewClientFactory,
     private val connectivityCheckRepository: ConnectivityCheckRepository,
+    private val mshSessionHolder: MshSessionHolder?,
 ) : ViewModel(),
     FrontendConnectionErrorStateProvider {
 
@@ -73,7 +76,8 @@ internal class ConnectionViewModel @VisibleForTesting constructor(
         savedStateHandle: SavedStateHandle,
         webViewClientFactory: HAWebViewClientFactory,
         connectivityCheckRepository: ConnectivityCheckRepository,
-    ) : this(savedStateHandle.toRoute<ConnectionRoute>().url, webViewClientFactory, connectivityCheckRepository)
+        mshSessionHolder: MshSessionHolder,
+    ) : this(savedStateHandle.toRoute<ConnectionRoute>().url, webViewClientFactory, connectivityCheckRepository, mshSessionHolder)
 
     private val rawUri: Uri by lazy { rawUrl.toUri() }
 
@@ -107,11 +111,17 @@ internal class ConnectionViewModel @VisibleForTesting constructor(
         }
     }
 
+    private val _autoLoginJsFlow = MutableStateFlow<String?>(null)
+    val autoLoginJsFlow = _autoLoginJsFlow.asStateFlow()
+
     val webViewClient: HAWebViewClient = webViewClientFactory.create(
         currentUrlFlow = urlFlow,
         onFrontendError = ::onError,
         onUrlIntercepted = ::interceptRedirectIfRequired,
-        onPageFinished = { _isLoadingFlow.update { false } },
+        onPageFinished = {
+            _isLoadingFlow.update { false }
+            emitAutoLoginScriptIfNeeded()
+        },
     )
 
     init {
@@ -199,5 +209,73 @@ internal class ConnectionViewModel @VisibleForTesting constructor(
         _errorFlow.update { error }
         // Automatically run connectivity checks when an error occurs
         runConnectivityChecks()
+    }
+
+    private fun emitAutoLoginScriptIfNeeded() {
+        val session = mshSessionHolder?.session ?: return
+        Timber.d("MSH session found, preparing auto-login injection")
+        _autoLoginJsFlow.value = buildAutoLoginScript(
+            username = session.username,
+            password = session.password,
+        )
+    }
+
+    private fun buildAutoLoginScript(username: String, password: String): String {
+        val escapedUsername = JSONObject.quote(username)
+        val escapedPassword = JSONObject.quote(password)
+        return """
+            (function() {
+                var found = false;
+                function createLoadingOverlay() {
+                    var overlay = document.createElement('div');
+                    overlay.id = 'mshLoadingOverlay';
+                    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:9999;display:flex;flex-direction:column;justify-content:center;align-items:center;';
+                    overlay.innerHTML = '<div style="border:8px solid #f3f3f3;border-top:8px solid #3498db;border-radius:50%;width:50px;height:50px;animation:mshSpin 1s linear infinite;"></div><p style="font-size:24px;font-family:Arial,sans-serif;color:black;">Signing in...</p>';
+                    var style = document.createElement('style');
+                    style.innerHTML = '@keyframes mshSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }';
+                    document.head.appendChild(style);
+                    document.body.appendChild(overlay);
+                }
+                function showErrorInOverlay() {
+                    var overlay = document.getElementById('mshLoadingOverlay');
+                    if (overlay) {
+                        overlay.innerHTML = '<p style="font-size:24px;font-family:Arial,sans-serif;color:red;text-align:center;">Invalid username or password.</p>';
+                    }
+                }
+                function checkForErrorAlert() {
+                    var interval = setInterval(function() {
+                        if (document.querySelector('ha-alert[alert-type="error"]')) {
+                            clearInterval(interval);
+                            showErrorInOverlay();
+                        }
+                    }, 1000);
+                }
+                function checkInputElement() {
+                    if (found) return;
+                    var inputElement = document.querySelector('input[name="username"]');
+                    if (inputElement) {
+                        found = true;
+                        doSignIn();
+                    }
+                }
+                function doSignIn() {
+                    var usernameInput = document.querySelector('input[name="username"]');
+                    var passwordInput = document.querySelector('input[name="password"]');
+                    var loginButton = document.querySelector('mwc-button');
+                    usernameInput.value = $escapedUsername;
+                    usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    passwordInput.value = $escapedPassword;
+                    passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    setTimeout(function() {
+                        if (loginButton) {
+                            loginButton.dispatchEvent(new MouseEvent('click', { view: window, bubbles: true, cancelable: true }));
+                        }
+                        checkForErrorAlert();
+                    }, 100);
+                }
+                setInterval(checkInputElement, 1000);
+                createLoadingOverlay();
+            })();
+        """.trimIndent()
     }
 }

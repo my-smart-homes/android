@@ -1465,4 +1465,18 @@
     <string name="fail_to_navigate_to_uri">No app available to open %s</string>
     <string name="experimental">Experimental</string>
     <string name="learn_more">Learn more</string>
+
+    <!-- MSH Login -->
+    <string name="msh_login_email_hint">Email</string>
+    <string name="msh_login_password_hint">Password</string>
+    <string name="msh_login_button">Sign In</string>
+    <string name="msh_login_error_title">Login Error</string>
+    <string name="msh_need_help">Need help?</string>
+    <string name="msh_server_selection_title">Select Server</string>
+
+    <!-- MSH Update -->
+    <string name="msh_update_available">Update Available</string>
+    <string name="msh_update_message">A new version is available. Please update to continue.</string>
+    <string name="msh_update_download">Download</string>
+    <string name="msh_update_later">Later</string>
 </resources>
