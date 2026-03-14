@@ -45,6 +45,7 @@ jobs:
         with:
           keystore: ${{ secrets.RELEASE_KEYSTORE }}
           google-services: ${{ secrets.ANDROID_GOOGLE_SERVICE }}
+          msh-secrets: ${{ secrets.MSH_SECRETS_ANDROID_FILE }}
 
       - uses: ./.github/actions/create-release-notes
         name: Create Release Notes
