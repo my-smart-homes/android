@@ -13,6 +13,9 @@ inputs:
   playstore-creds:
     description: "The playstore credentials to inflate"
     required: false
+  msh-secrets:
+    description: "The base64-encoded MshSecrets.kt file"
+    required: false
 runs:
   using: "composite"
   steps:
@@ -56,3 +59,11 @@ runs:
         echo $CREDS > app/playStorePublishServiceCredentialsFile.json
         echo $CREDS > wear/playStorePublishServiceCredentialsFile.json
         echo $CREDS > automotive/playStorePublishServiceCredentialsFile.json
+
+    - name: Inflate MshSecrets.kt
+      if: ${{ inputs.msh-secrets != '' }}
+      shell: bash
+      env:
+        MSH_SECRETS: ${{ inputs.msh-secrets }}
+      run: |
+        echo $MSH_SECRETS | base64 --decode > app/src/main/kotlin/io/homeassistant/companion/android/onboarding/login/MshSecrets.kt
