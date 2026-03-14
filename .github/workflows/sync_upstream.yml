@@ -9,7 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: write
 
     steps:
       - name: Checkout target branch
@@ -109,10 +108,4 @@ jobs:
           git push origin main --force
           echo "updated=true" >> $GITHUB_OUTPUT
 
-      - name: Trigger Build Workflow
-        if: steps.sync.outputs.updated == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.ANDROID_PAT }}
-        run: |
-          echo "Triggering onPush.yml workflow..."
-          gh workflow run onPush.yml --ref main --repo ${{ github.repository }}
+      # Build is automatically triggered by the force-push to main via onPush.yml's push event
