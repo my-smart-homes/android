@@ -64,6 +64,7 @@ internal fun ConnectionScreen(onBackClick: () -> Unit, viewModel: ConnectionView
         isError = isError,
         webViewClient = viewModel.webViewClient,
         onBackClick = onBackClick,
+        onWebViewCreationFailed = viewModel::onWebViewCreationFailed,
         onWebViewCreated = { webViewRef = it },
         modifier = modifier,
     )
