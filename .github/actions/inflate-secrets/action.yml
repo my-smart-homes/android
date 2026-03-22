@@ -66,4 +66,5 @@ runs:
       env:
         MSH_SECRETS: ${{ inputs.msh-secrets }}
       run: |
-        echo $MSH_SECRETS | base64 --decode > app/src/main/kotlin/io/homeassistant/companion/android/onboarding/login/MshSecrets.kt
+        echo "$MSH_SECRETS" | base64 --decode > app/src/main/kotlin/io/homeassistant/companion/android/onboarding/login/MshSecrets.kt
+        echo "MshSecrets.kt written, size: $(wc -c < app/src/main/kotlin/io/homeassistant/companion/android/onboarding/login/MshSecrets.kt) bytes"
