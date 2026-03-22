@@ -978,6 +978,8 @@
     <string name="webview_error_SSL_NOTYETVALID">The My Smart Homes certificate is not yet valid, please review the My Smart Homes certificate or the connection settings and try again.</string>
     <string name="webview_error_SSL_UNTRUSTED">The My Smart Homes certificate authority is not trusted, please review the My Smart Homes certificate or the connection settings and try again.</string>
     <string name="webview_error">There was an error loading My Smart Homes, please review the connection settings and try again. We will attempt to try another provided URL when you select Refresh.</string>
+    <string name="webview_creation_error_title">WebView unavailable</string>
+    <string name="webview_creation_failed">WebView failed to initialize, please check and update your system WebView.</string>
     <string name="welcome_hass">Welcome to My Smart Homes!</string>
     <string name="widget_attribute_separator_label">Separator between attributes:</string>
     <string name="widget_background_type_title">Select widget theme</string>
@@ -1407,6 +1409,8 @@
     <string name="location_sharing_no_share">Do not share my location</string>
     <string name="location_secure_connection_title">Let us help secure your remote connection</string>
     <string name="location_secure_connection_content">It appears that your connection is not encrypted (using HTTP). If the app knows when you\'re away from home, it can choose a more secure way to connect to your My Smart Homes system if available. This requires location services to be enabled.</string>
+    <string name="location_secure_connection_content_http">It appears that your connection is not encrypted (currently using HTTP in your configuration).</string>
+    <string name="location_secure_connection_content_location">If the app knows when you\'re away from home, it can choose a more secure way to connect to your My Smart Homes system if available. This requires location services to be enabled.</string>
     <string name="location_secure_connection_hint">This data will never be shared with the My Smart Homes project or third parties.</string>
     <string name="location_secure_connection_next">Next</string>
     <string name="location_secure_connection_save">Save</string>
