@@ -104,8 +104,43 @@ jobs:
              exit 1
           fi
 
-          # Force push updated main
-          git push origin main --force
           echo "updated=true" >> $GITHUB_OUTPUT
+
+      - name: Set up JDK 21
+        if: steps.sync.outputs.updated == 'true'
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Setup Gradle
+        if: steps.sync.outputs.updated == 'true'
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          cache-disabled: true
+
+      - name: Mock google-services.json for lock file resolution
+        if: steps.sync.outputs.updated == 'true'
+        run: |
+          cp .github/mock-google-services.json app/google-services.json
+          cp .github/mock-google-services.json wear/google-services.json
+          cp .github/mock-google-services.json automotive/google-services.json
+
+      - name: Update dependency lock files
+        if: steps.sync.outputs.updated == 'true'
+        run: |
+          ./gradlew alldependencies --write-locks
+          if [ -n "$(git diff --name-only)" ]; then
+            echo "Lock files updated, committing changes..."
+            git add '*.lockfile'
+            git commit -m "fix: update dependency lock files after upstream sync"
+          else
+            echo "Lock files are already up-to-date."
+          fi
+
+      - name: Push to origin
+        if: steps.sync.outputs.updated == 'true'
+        run: |
+          git push origin main --force
 
       # Build is automatically triggered by the force-push to main via onPush.yml's push event
