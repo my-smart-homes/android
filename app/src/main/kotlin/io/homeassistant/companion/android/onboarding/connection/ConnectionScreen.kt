@@ -109,9 +109,9 @@ internal fun ConnectionScreen(
             ErrorPlaceholder()
         }
 
-        if (isLoading) {
-            LoadingScreen(modifier = Modifier.fillMaxSize())
-        }
+        // if (isLoading) { // temporarily disabled for debugging
+        //     LoadingScreen(modifier = Modifier.fillMaxSize())
+        // }
     }
 }
 

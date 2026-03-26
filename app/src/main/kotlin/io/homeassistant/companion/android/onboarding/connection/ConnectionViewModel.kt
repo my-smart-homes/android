@@ -274,7 +274,7 @@ internal class ConnectionViewModel @VisibleForTesting constructor(
                     }, 100);
                 }
                 setInterval(checkInputElement, 1000);
-                createLoadingOverlay();
+                // createLoadingOverlay(); // temporarily disabled for debugging
             })();
         """.trimIndent()
     }
