@@ -1,5 +1,6 @@
 package io.homeassistant.companion.android.onboarding.connection
 
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.annotation.VisibleForTesting
@@ -15,6 +16,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -26,8 +30,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.homeassistant.companion.android.R
+import io.homeassistant.companion.android.common.R as commonR
+import io.homeassistant.companion.android.common.compose.composable.HATextField
 import io.homeassistant.companion.android.common.compose.theme.HAThemeForPreview
 import io.homeassistant.companion.android.common.compose.theme.LocalHAColorScheme
 import io.homeassistant.companion.android.loading.LoadingScreen
@@ -49,12 +56,21 @@ internal fun ConnectionScreen(onBackClick: () -> Unit, viewModel: ConnectionView
     val isLoading by viewModel.isLoadingFlow.collectAsState()
     val error by viewModel.errorFlow.collectAsState()
     val autoLoginJs by viewModel.autoLoginJsFlow.collectAsState()
+    val otpPrompt by viewModel.otpPromptFlow.collectAsState()
+    val otpSubmissionJs by viewModel.otpSubmissionJsFlow.collectAsState()
     val isError = error != null
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
     LaunchedEffect(autoLoginJs) {
         autoLoginJs?.let { js ->
             webViewRef?.evaluateJavascript(js, null)
+        }
+    }
+
+    LaunchedEffect(otpSubmissionJs) {
+        otpSubmissionJs?.let { pending ->
+            webViewRef?.evaluateJavascript(pending.script, null)
+            viewModel.onOtpSubmissionScriptConsumed()
         }
     }
 
@@ -65,9 +81,24 @@ internal fun ConnectionScreen(onBackClick: () -> Unit, viewModel: ConnectionView
         webViewClient = viewModel.webViewClient,
         onBackClick = onBackClick,
         onWebViewCreationFailed = viewModel::onWebViewCreationFailed,
-        onWebViewCreated = { webViewRef = it },
+        onWebViewCreated = {
+            webViewRef = it
+            it.addJavascriptInterface(
+                ConnectionOtpJavascriptBridge(
+                    onRequestOtp = viewModel::onOtpRequested,
+                ),
+                "AndroidOtpBridge",
+            )
+        },
         modifier = modifier,
     )
+
+    if (otpPrompt != null) {
+        OtpDialog(
+            onDismiss = viewModel::onOtpDialogDismissed,
+            onSubmit = viewModel::onOtpSubmitted,
+        )
+    }
 }
 
 @Composable
@@ -131,6 +162,48 @@ private fun ErrorPlaceholder() {
             modifier = Modifier.size(ICON_SIZE),
         )
     }
+}
+
+private class ConnectionOtpJavascriptBridge(
+    private val onRequestOtp: () -> Unit,
+) {
+    @JavascriptInterface
+    fun requestOtp() {
+        onRequestOtp()
+    }
+}
+
+@Composable
+private fun OtpDialog(
+    onDismiss: () -> Unit,
+    onSubmit: (String) -> Unit,
+) {
+    var otpCode by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(commonR.string.msh_otp_dialog_title)) },
+        text = {
+            HATextField(
+                value = otpCode,
+                onValueChange = { otpCode = it.filter(Char::isDigit) },
+                label = { Text(stringResource(commonR.string.msh_otp_dialog_hint)) },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSubmit(otpCode) },
+            ) {
+                Text(stringResource(commonR.string.confirm_positive))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(commonR.string.cancel))
+            }
+        },
+    )
 }
 
 @HAPreviews
