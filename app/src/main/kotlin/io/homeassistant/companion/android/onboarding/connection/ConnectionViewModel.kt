@@ -58,6 +58,15 @@ internal sealed interface ConnectionNavigationEvent {
     data class OpenExternalLink(val url: Uri) : ConnectionNavigationEvent
 }
 
+internal data class OtpPromptRequest(
+    val nonce: Long = System.nanoTime(),
+)
+
+internal data class PendingJavascript(
+    val script: String,
+    val nonce: Long = System.nanoTime(),
+)
+
 private const val AUTH_CALLBACK_SCHEME = "homeassistant"
 private const val AUTH_CALLBACK_HOST = "auth-callback"
 private const val AUTH_CALLBACK = "$AUTH_CALLBACK_SCHEME://$AUTH_CALLBACK_HOST"
@@ -113,6 +122,12 @@ internal class ConnectionViewModel @VisibleForTesting constructor(
 
     private val _autoLoginJsFlow = MutableStateFlow<String?>(null)
     val autoLoginJsFlow = _autoLoginJsFlow.asStateFlow()
+
+    private val _otpPromptFlow = MutableStateFlow<OtpPromptRequest?>(null)
+    val otpPromptFlow = _otpPromptFlow.asStateFlow()
+
+    private val _otpSubmissionJsFlow = MutableStateFlow<PendingJavascript?>(null)
+    val otpSubmissionJsFlow = _otpSubmissionJsFlow.asStateFlow()
 
     val webViewClient: HAWebViewClient = webViewClientFactory.create(
         currentUrlFlow = urlFlow,
@@ -220,13 +235,38 @@ internal class ConnectionViewModel @VisibleForTesting constructor(
         )
     }
 
+    fun onOtpRequested() {
+        Timber.d("TOTP form detected, requesting native OTP dialog")
+        _otpPromptFlow.value = OtpPromptRequest()
+    }
+
+    fun onOtpDialogDismissed() {
+        _otpPromptFlow.value = null
+    }
+
+    fun onOtpSubmitted(code: String) {
+        if (code.isBlank()) return
+
+        _otpPromptFlow.value = null
+        _otpSubmissionJsFlow.value = PendingJavascript(
+            script = buildOtpSubmissionScript(code),
+        )
+    }
+
+    fun onOtpSubmissionScriptConsumed() {
+        _otpSubmissionJsFlow.value = null
+    }
+
     private fun buildAutoLoginScript(username: String, password: String): String {
         val escapedUsername = JSONObject.quote(username)
         val escapedPassword = JSONObject.quote(password)
         return """
             (function() {
                 var found = false;
+                var otpPromptVisible = false;
+
                 function createLoadingOverlay() {
+                    if (document.getElementById('mshLoadingOverlay')) return;
                     var overlay = document.createElement('div');
                     overlay.id = 'mshLoadingOverlay';
                     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:9999;display:flex;flex-direction:column;justify-content:center;align-items:center;';
@@ -236,11 +276,33 @@ internal class ConnectionViewModel @VisibleForTesting constructor(
                     document.head.appendChild(style);
                     document.body.appendChild(overlay);
                 }
+                function removeLoadingOverlay() {
+                    var overlay = document.getElementById('mshLoadingOverlay');
+                    if (overlay) {
+                        overlay.remove();
+                    }
+                }
                 function showErrorInOverlay() {
                     var overlay = document.getElementById('mshLoadingOverlay');
                     if (overlay) {
                         overlay.innerHTML = '<p style="font-size:24px;font-family:Arial,sans-serif;color:red;text-align:center;">Invalid username or password.</p>';
                     }
+                }
+                function getOtpInput() {
+                    return document.querySelector('input[name="code"][autocomplete="one-time-code"], input[name="code"], input[aria-labelledby="code"]');
+                }
+                function notifyAndroidOtpRequested() {
+                    if (otpPromptVisible) return;
+                    var otpInput = getOtpInput();
+                    if (!otpInput) return;
+                    otpPromptVisible = true;
+                    removeLoadingOverlay();
+                    if (window.AndroidOtpBridge && typeof window.AndroidOtpBridge.requestOtp === 'function') {
+                        window.AndroidOtpBridge.requestOtp();
+                    }
+                }
+                function watchForOtp() {
+                    notifyAndroidOtpRequested();
                 }
                 function checkForErrorAlert() {
                     var interval = setInterval(function() {
@@ -261,11 +323,11 @@ internal class ConnectionViewModel @VisibleForTesting constructor(
                 function doSignIn() {
                     var usernameInput = document.querySelector('input[name="username"]');
                     var passwordInput = document.querySelector('input[name="password"]');
-                    var loginButton = document.querySelector('mwc-button');
-                    usernameInput.value = $escapedUsername;
-                    usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    passwordInput.value = $escapedPassword;
-                    passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        var loginButton = document.querySelector('mwc-button');
+                        usernameInput.value = $escapedUsername;
+                        usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        passwordInput.value = $escapedPassword;
+                        passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
                     setTimeout(function() {
                         if (loginButton) {
                             loginButton.dispatchEvent(new MouseEvent('click', { view: window, bubbles: true, cancelable: true }));
@@ -274,7 +336,53 @@ internal class ConnectionViewModel @VisibleForTesting constructor(
                     }, 100);
                 }
                 setInterval(checkInputElement, 1000);
+                setInterval(watchForOtp, 700);
+                var observer = new MutationObserver(function() {
+                    watchForOtp();
+                });
+                observer.observe(document.documentElement || document.body, { childList: true, subtree: true });
                 createLoadingOverlay();
+            })();
+        """.trimIndent()
+    }
+
+    private fun buildOtpSubmissionScript(code: String): String {
+        val escapedCode = JSONObject.quote(code)
+        return """
+            (function() {
+                function getOtpInput() {
+                    return document.querySelector('input[name="code"][autocomplete="one-time-code"], input[name="code"], input[aria-labelledby="code"]');
+                }
+                var otpInput = getOtpInput();
+                if (!otpInput) return;
+                var submitButton =
+                    (otpInput.form && otpInput.form.querySelector('button[type="submit"], mwc-button, input[type="submit"]')) ||
+                    document.querySelector('button[type="submit"], mwc-button, input[type="submit"]');
+                var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+                if (nativeSetter && nativeSetter.set) {
+                    nativeSetter.set.call(otpInput, $escapedCode);
+                } else {
+                    otpInput.value = $escapedCode;
+                }
+                otpInput.dispatchEvent(new Event('input', { bubbles: true }));
+                otpInput.dispatchEvent(new Event('change', { bubbles: true }));
+                otpInput.focus();
+                setTimeout(function() {
+                    if (submitButton) {
+                        submitButton.dispatchEvent(new MouseEvent('click', { view: window, bubbles: true, cancelable: true }));
+                    } else if (otpInput.form) {
+                        if (typeof otpInput.form.requestSubmit === 'function') {
+                            otpInput.form.requestSubmit();
+                        } else {
+                            otpInput.form.submit();
+                        }
+                    }
+                }, 100);
+                setTimeout(function() {
+                    if (getOtpInput() && window.AndroidOtpBridge && typeof window.AndroidOtpBridge.requestOtp === 'function') {
+                        window.AndroidOtpBridge.requestOtp();
+                    }
+                }, 2500);
             })();
         """.trimIndent()
     }
