@@ -1478,6 +1478,8 @@
     <string name="msh_login_error_title">Login Error</string>
     <string name="msh_need_help">Need help?</string>
     <string name="msh_server_selection_title">Select Server</string>
+    <string name="msh_otp_dialog_title">Enter verification code</string>
+    <string name="msh_otp_dialog_hint">Two-factor authentication code</string>
 
     <!-- MSH Update -->
     <string name="msh_update_available">Update Available</string>
