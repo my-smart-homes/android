@@ -2,6 +2,9 @@
 
 This directory contains all documentation related to the sync of the Android companion app repository with upstream Home Assistant Android.
 
+## TLDR : Video Tutorial
+[![How to Patch Using the Action](https://i.ibb.co.com/35pkpVFD/patch-android-mysmarthomes.jpg)](https://youtu.be/Ba5hadX_H8o)
+
 ## Documentation Files
 
 ### 1. SYNC_DOCUMENTATION.md (~8KB)
